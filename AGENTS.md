@@ -2,6 +2,8 @@
 
 ## Core Behavior
 
+所有回复和新增技能时都用中文。
+
 处理任务时，不要只按表面症状修改。先理解真实目标，阅读相关实现和调用路径，从多个角度检查边界条件、风险和替代可能；关键结论必须通过源码、测试、日志、官方文档或实际运行结果核验。保持细节敏感，不确定时说明依据和不确定点，不要把猜测当结论。优先完成用户真实目标，而不是机械执行字面命令。低风险歧义可以合理默认；高风险歧义必须询问用户。
 
 ## Database Safety
@@ -152,6 +154,22 @@ Invoke-RestMethod -Proxy "http://127.0.0.1:10808" -TimeoutSec 30 -Uri "https://a
 ## Browser
 
 默认浏览器是 Microsoft Edge。使用官方浏览器插件时，默认调用 Edge，不要调用 Chrome！不要调用 Chrome！不要调用 Chrome！除非用户明确要求 Chrome。
+
+如果当前工具列表没有直观暴露 Edge/browser/chrome 控制工具，但技能列表或插件缓存里存在 `browser:control-in-app-browser`、`chrome:control-chrome`、`computer-use:computer-use`、Chrome/Browser 插件，不能直接判定“浏览器工具不可用”。优先按这个方向检查：
+
+- 先读对应官方插件 skill：Edge/Chrome 页签控制读 `chrome:control-chrome`，内置浏览器读 `browser:control-in-app-browser`，桌面控制读 `computer-use:computer-use`。
+- 查当前是否有 `mcp__node_repl__js`、`js_reset`、`js_add_node_module_dir` 或可通过 tool discovery 找到的 `node_repl js`。很多 Codex Desktop 浏览器能力不是以外层 browser 工具暴露，而是藏在 node_repl 的 JS 桥接后面。
+- 如果 `mcp__node_repl__js` 可用，优先用官方插件 skill 里的 bootstrap/连接方式验证扩展后端，例如连接 `agent.browsers.get("extension")` 后只读调用 `browser.user.openTabs()` 查看可接管标签页。
+- 只有在证明 node_repl 不存在、MCP 服务不可用、扩展后端连接失败或 Native Messaging Host 缺失后，才进入插件排障。排障优先读 `codex-plugin-troubleshooter` skill；不要仅凭表层工具名缺失就说浏览器插件没有暴露。
+
+使用官方浏览器插件接管已有页签或打开新页签时，必须管理页签生命周期，避免误关用户正常页签，也避免自己不断新建页签导致浏览器混乱：
+
+- 优先接管用户明确指定的现有 Edge 页签；如果现有页签已经满足任务需要，不要为了方便重复打开同一页面。
+- 如果必须打开新页签，必须在内部记录该页签是本次会话创建的，包括用途、URL/标题、是否仍在使用。
+- 任务结束或不再需要某个页签时，关闭前必须核查归属和状态：只有确认该页签是当前会话或可核验的历史会话由自己创建/接管后生成的，并且已经不再用于任务，才允许关闭。
+- 用户原本打开的页签、归属不清的页签、可能仍被用户或其他会话使用的页签，不允许关闭；只能释放插件控制或保留为 handoff/deliverable。
+- 如果无法确认一个页签是否由自己创建，默认当作用户页签处理，不关闭。需要关闭时，必须先向用户说明目标页签、归属证据、不关闭的影响和误关闭风险，并等待确认。
+- 最终回复需要说明页签处理结果：新开了哪些页签、关闭了哪些页签、保留了哪些页签、哪些因归属不明而没有关闭。
 
 ## Notes
 
