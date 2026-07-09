@@ -159,7 +159,10 @@ Invoke-RestMethod -Proxy "http://127.0.0.1:10808" -TimeoutSec 30 -Uri "https://a
 
 - 先读对应官方插件 skill：Edge/Chrome 页签控制读 `chrome:control-chrome`，内置浏览器读 `browser:control-in-app-browser`，桌面控制读 `computer-use:computer-use`。
 - 查当前是否有 `mcp__node_repl__js`、`js_reset`、`js_add_node_module_dir` 或可通过 tool discovery 找到的 `node_repl js`。很多 Codex Desktop 浏览器能力不是以外层 browser 工具暴露，而是藏在 node_repl 的 JS 桥接后面。
+- 检查工具面时也要查当前运行时工具元数据，例如 `ALL_TOOLS`。`js_reset` 只能清状态，`js_add_node_module_dir` 只能改模块解析；真正执行官方 bootstrap 需要 `mcp__node_repl__js` / Node REPL `js`。
 - 如果 `mcp__node_repl__js` 可用，优先用官方插件 skill 里的 bootstrap/连接方式验证扩展后端，例如连接 `agent.browsers.get("extension")` 后只读调用 `browser.user.openTabs()` 查看可接管标签页。
+- 如果只需要证明 Browser/Chrome 插件可达，可在 bootstrap 后尝试 `agent.browsers.get("iab")` 或 `agent.browsers.get("extension")` 并确认有 `documentation()`；不要为了证明可用而新开页签、点击页面或操作窗口。
+- 如果只需要证明 Computer Use 可达，可在 bootstrap 后用 `sky.list_apps()` 做轻量只读验证。若 `js_reset` 可见但 `js` 不可见，继续用工具发现搜索 `node_repl js`；确认 Node REPL `js` 仍不可用后，才说明 Computer Use 当前不可用。
 - 只有在证明 node_repl 不存在、MCP 服务不可用、扩展后端连接失败或 Native Messaging Host 缺失后，才进入插件排障。排障优先读 `codex-plugin-troubleshooter` skill；不要仅凭表层工具名缺失就说浏览器插件没有暴露。
 
 使用官方浏览器插件接管已有页签或打开新页签时，必须管理页签生命周期，避免误关用户正常页签，也避免自己不断新建页签导致浏览器混乱：
@@ -170,6 +173,18 @@ Invoke-RestMethod -Proxy "http://127.0.0.1:10808" -TimeoutSec 30 -Uri "https://a
 - 用户原本打开的页签、归属不清的页签、可能仍被用户或其他会话使用的页签，不允许关闭；只能释放插件控制或保留为 handoff/deliverable。
 - 如果无法确认一个页签是否由自己创建，默认当作用户页签处理，不关闭。需要关闭时，必须先向用户说明目标页签、归属证据、不关闭的影响和误关闭风险，并等待确认。
 - 最终回复需要说明页签处理结果：新开了哪些页签、关闭了哪些页签、保留了哪些页签、哪些因归属不明而没有关闭。
+
+## Codex Desktop Tool Discovery
+
+涉及读取、搜索、创建、继续、改名、归档、pin、handoff Codex 线程时，不要只看外层工具列表、MCP resources 或表层命名空间就断定没有工具。必须先检查当前运行时工具元数据，例如 `ALL_TOOLS`，搜索 `thread`、`read_thread`、`list_threads`、`codex_app`、`send_message_to_thread`、`set_thread_title`。
+
+Codex Desktop 线程工具在当前环境中可能以 `codex_app__read_thread`、`codex_app__list_threads`、`codex_app__send_message_to_thread`、`codex_app__set_thread_archived`、`codex_app__set_thread_pinned`、`codex_app__set_thread_title`、`codex_app__create_thread`、`codex_app__fork_thread`、`codex_app__handoff_thread` 等宿主注入工具出现，而不是普通 shell 命令或用户手动配置的 MCP server。
+
+读指定线程时优先直接调用 `codex_app__read_thread`。`turnLimit` 使用 `10` 或更小；需要更早内容时使用返回的 `nextCursor` 翻页。不要因为一次过大的 `turnLimit`、分页参数错误、或外层工具列表未直观显示，就判断线程不存在。
+
+如果工具元数据里有线程工具，但调用时报 `No handler registered`、`invalid arguments` 或类似宿主错误，结论应是“当前 Codex Desktop 工具 handler/参数/会话状态异常”，而不是“没有 read_thread”。可尝试更小参数、直接 thread id、`list_threads` 互证、新线程或重启 Codex Desktop。
+
+只有在检查过当前运行时工具元数据、相关技能/插件说明、必要时的官方文档或公开 issue 证据后，才允许说某个 Codex Desktop 线程工具在本会话不可用。回答时要区分“公开文档没有配置项”“当前会话没暴露工具”“工具暴露但 handler 失效”。
 
 ## Notes
 
