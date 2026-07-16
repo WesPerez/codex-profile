@@ -98,9 +98,10 @@
 - 保持 `openaiDeveloperDocs` MCP 禁用；未经用户明确要求，不自动安装、启用或测试它。
 - 需要 OpenAI/Codex 官方资料时，优先使用当前 `openai-docs` Skill 规定的 Codex manual helper 或官方网页回退路径。
 
-## Cross-model Subagents
+## Cross-model subagents
 
-- 主线程模型由用户选择，不写死。主线程为 `gpt-5.6-sol` 且任务适合独立并行时，优先使用 `default`、`worker` 或 `explorer`；三个角色的实际模型由 `~/.codex/agents/*.toml` 固定，不依赖本段文字选择模型。
-- 跨模型派发默认使用 `fork_turns="none"`。只有任务确实依赖最近对话时才使用 `"1"` 到 `"3"`，禁止使用或省略成 `"all"`。
+- 主线程保持 `gpt-5.6-sol` 与 `ultra`；正常委派优先使用 `grok-default`、`grok-worker` 或 `grok-explorer`，不通过手动切换主线程模型代替委派。
+- Grok 子代理遇到 `429`、`502`、`503`、超时或 `no healthy account` 时，结束失败的 Grok 子线程，并用同一任务正文、`fork_turns="none"` 重派对应的官方 `default`、`worker` 或 `explorer` 角色，使其继承当前主模型。普通业务 `4xx`、工具参数错误和权限错误不自动重派。
+- 跨模型派发必须显式使用 `fork_turns="none"`。只有任务确实依赖最近对话时才使用 `"1"` 到 `"3"`，禁止使用或省略成 `"all"`。
 - `fork_turns="none"` 时，派发消息必须包含目标、范围、约束、读写权限、停止条件和所需证据。
-- Grok 4.5 子代理固定使用 `high`，不得继承主线程的 `ultra`；子代理不得继续派发子代理。
+- Grok 4.5 子代理固定使用 `high`，不得继承主线程的 `ultra`。
